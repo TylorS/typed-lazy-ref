@@ -25,6 +25,7 @@ import {
 } from 'effect'
 import { pipeArguments } from 'effect/Pipeable'
 import type { GetSetDelete, SubscriptionRefOptions } from './LazyRef.js'
+import { constVoid } from 'effect/Function'
 
 const toDeepEquals = (u: unknown): unknown => {
   switch (typeof u) {
@@ -115,8 +116,7 @@ export function unsafeMakeCore<A, E, R, R2>(
   options?: SubscriptionRefOptions<A>,
 ): SubscriptionRefCore<A, E, R, R2> {
   const pubsub = pubsubWithReplay<A, E>()
-
-  return new SubscriptionRefCore(
+  const core = new SubscriptionRefCore(
     initial,
     pubsub,
     runtime,
@@ -124,6 +124,20 @@ export function unsafeMakeCore<A, E, R, R2>(
     unsafeMakeDeferredRef(id, getExitEquivalence(options?.eq ?? deepEquals), pubsub.lastValue),
     Effect.unsafeMakeSemaphore(1),
   )
+
+  // Initialize the deferred ref with the initial value if it's already available
+  matchEffectPrimitive(initial, {
+    Success: (a) => core.deferredRef.done(Exit.succeed(a)),
+    Failure: (cause) => core.deferredRef.done(Exit.failCause(cause)),
+    Left: (e) => core.deferredRef.done(Exit.fail(e)),
+    Right: (a) => core.deferredRef.done(Exit.succeed(a)),
+    Some: (a) => core.deferredRef.done(Exit.succeed(a)),
+    Sync: constVoid,
+    None: constVoid,
+    Otherwise: constVoid,
+  })
+
+  return core
 }
 
 export function matchEffectPrimitive<A, E, R, Z>(
@@ -197,23 +211,17 @@ class PubsubWithReplay<A, E> implements PubSub.PubSub<Exit.Exit<A, E>> {
     () => {
       MutableRef.update(this.subscriberCount, (count) => count + 1)
 
-      return Option.match(MutableRef.get(this.lastValue), {
-        onNone: () =>
-          Effect.tap(this.pubsub.subscribe, () =>
-            Effect.addFinalizer(() =>
-              Effect.sync(() => MutableRef.update(this.subscriberCount, (count) => count - 1)),
-            ),
-          ),
-        onSome: (previous) =>
-          this.pubsub.subscribe.pipe(
-            Effect.map((dequeue) => dequeuePrepend(dequeue, previous)),
-            Effect.tap(
-              Effect.addFinalizer(() =>
-                Effect.sync(() => MutableRef.update(this.subscriberCount, (count) => count - 1)),
-              ),
-            ),
-          ),
-      })
+      return this.pubsub.subscribe.pipe(
+        Effect.map((dequeue) =>
+          Option.match(MutableRef.get(this.lastValue), {
+            onNone: () => dequeue,
+            onSome: (previous) => dequeuePrepend(dequeue, previous),
+          }),
+        ),
+        Effect.ensuring(
+          Effect.sync(() => MutableRef.update(this.subscriberCount, (count) => count - 1)),
+        ),
+      )
     },
   )
 

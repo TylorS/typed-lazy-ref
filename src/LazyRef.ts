@@ -224,7 +224,7 @@ export const fromStream = <A, E, R>(
     Effect.map(({ core }) => new SubscriptionRefImpl(core)),
   )
 
-export function make<A, E, R>(
+export function make<A, E = never, R = never>(
   input: Effect.Effect<A, E, R> | Stream.Stream<A, E, R>,
   options?: SubscriptionRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, R | Scope.Scope> {

@@ -213,4 +213,68 @@ describe('LazyRef', () => {
       expect(Array.from(yield* fiber2)).toEqual([2, 3])
     }).pipe(Effect.scoped),
   )
+
+  it.live('emits updates to computed streams of Options', () =>
+    Effect.gen(function* () {
+      const ref = yield* LazyRef.of(0)
+      const computed = LazyRef.map(ref, (x) => Option.some(x + 1))
+      const computed2 = LazyRef.map(
+        computed,
+        Option.map((x) => x + 1),
+      )
+      const fiber = yield* computed.changes.pipe(Stream.runCollect, Effect.fork)
+      const fiber2 = yield* computed2.changes.pipe(Stream.runCollect, Effect.fork)
+
+      yield* Effect.sleep(0)
+      yield* LazyRef.update(ref, (x) => x + 1)
+      yield* ref.awaitShutdown
+
+      expect(Array.from(yield* fiber)).toEqual([Option.some(1), Option.some(2)])
+      expect(Array.from(yield* fiber2)).toEqual([Option.some(2), Option.some(3)])
+    }).pipe(Effect.scoped),
+  )
+
+  it.live('verifying LazyRef works as expected', () =>
+    Effect.gen(function* () {
+      const ref = yield* LazyRef.make<{
+        entries: never[]
+        index: number
+        transition: Option.Option<{ from: URL; to: URL }>
+      }>(Effect.succeed({
+        entries: [],
+        index: -1,
+        transition: Option.none(),
+      }))
+      const transition = LazyRef.map(ref, (x) => x.transition)
+      const fiber = yield* transition.changes.pipe(
+        Stream.tap((_) => Effect.log('transition:', _)),
+        Stream.runCollect,
+        Effect.map((_) => Array.from(_)),
+        Effect.fork,
+      )
+
+      yield* Effect.sleep(10)
+
+      yield* LazyRef.set(ref, {
+        entries: [],
+        index: 0,
+        transition: Option.some({
+          from: new URL('https://example.com/foo/1'),
+          to: new URL('https://example.com/foo/2'),
+        }),
+      })
+
+      yield* ref.awaitShutdown
+
+      const events = yield* Effect.fromFiber(fiber)
+
+      expect(events).toEqual([
+        Option.none(),
+        Option.some({
+          from: new URL('https://example.com/foo/1'),
+          to: new URL('https://example.com/foo/2'),
+        }),
+      ])
+    }).pipe(Effect.scoped),
+  )
 })
