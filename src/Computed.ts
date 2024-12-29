@@ -73,7 +73,7 @@ export function computedFromTag<Id, S, A, E, R>(
 ): Computed<A, E, Id | R> {
   return new ComputedImpl(
     Effect.flatMap(tag, f),
-    Stream.unwrap(Effect.map(tag, f)),
+    Stream.unwrap(Effect.map(tag, (s) => f(s).changes)),
     Effect.flatMap(tag, (s) => f(s).version),
   )
 }

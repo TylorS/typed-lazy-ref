@@ -196,4 +196,21 @@ describe('LazyRef', () => {
       expect(Array.from(yield* fiber3)).toEqual([4, 5, 6, 7, 8, 9, 10])
     }).pipe(Effect.scoped),
   )
+
+  it.live('emits updates to computed streams', () =>
+    Effect.gen(function* () {
+      const ref = yield* LazyRef.of(0)
+      const computed = LazyRef.map(ref, (x) => x + 1)
+      const computed2 = LazyRef.map(computed, (x) => x + 1)
+      const fiber = yield* computed.changes.pipe(Stream.runCollect, Effect.fork)
+      const fiber2 = yield* computed2.changes.pipe(Stream.runCollect, Effect.fork)
+
+      yield* Effect.sleep(0)
+      yield* LazyRef.update(ref, (x) => x + 1)
+      yield* ref.awaitShutdown
+
+      expect(Array.from(yield* fiber)).toEqual([1, 2])
+      expect(Array.from(yield* fiber2)).toEqual([2, 3])
+    }).pipe(Effect.scoped),
+  )
 })

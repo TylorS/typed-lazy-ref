@@ -1,4 +1,4 @@
-import { Effect, type Exit, Option, Readable, Record, Stream, Subscribable } from 'effect'
+import { Effect, Readable, Record, Stream, Subscribable } from 'effect'
 import { EffectBase, MulticastEffect } from './internal.js'
 
 export interface Versioned<A, E, R>
@@ -28,12 +28,15 @@ export class VersionedImpl<A, E, R> extends EffectBase<A, E, R> implements Versi
   readonly [Subscribable.TypeId]: typeof Subscribable.TypeId = Subscribable.TypeId
   readonly [Readable.TypeId]: typeof Readable.TypeId = Readable.TypeId
 
+  readonly get: Effect.Effect<A, E, R>
+  
   constructor(
-    readonly get: Effect.Effect<A, E, R>,
+    get: Effect.Effect<A, E, R>,
     readonly changes: Stream.Stream<A, E, R>,
     readonly version: Effect.Effect<number, never, R>,
   ) {
     super()
+    this.get = new MulticastEffect(get)
   }
 
   toEffect(): Effect.Effect<A, E, R> {

@@ -233,20 +233,23 @@ export function make<A, E, R>(
 
 export function of<A, E = never>(
   value: A,
+  options?: SubscriptionRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
-  return make(Effect.succeed(value))
+  return make(Effect.succeed(value), options)
 }
 
 export function failCause<E, A = unknown>(
   cause: Cause.Cause<E>,
+  options?: SubscriptionRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
-  return make<A, E, never>(Effect.failCause(cause))
+  return make<A, E, never>(Effect.failCause(cause), options)
 }
 
 export function fail<E, A = unknown>(
   error: E,
+  options?: SubscriptionRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
-  return make<A, E, never>(Effect.fail(error))
+  return make<A, E, never>(Effect.fail(error), options)
 }
 
 export function get<A, E, R>(ref: LazyRef<A, E, R>): Effect.Effect<A, E, R> {
@@ -260,9 +263,7 @@ export const set: {
   return ref.runUpdates(({ set }) => set(a))
 })
 
-export function reset<A, E, R>(
-  ref: LazyRef<A, E, R>,
-): Effect.Effect<Option.Option<A>, E, R> {
+export function reset<A, E, R>(ref: LazyRef<A, E, R>): Effect.Effect<Option.Option<A>, E, R> {
   return ref.runUpdates((ref) => ref.delete)
 }
 
@@ -272,10 +273,7 @@ export const modify: {
   <A, const B>(
     f: (a: A) => readonly [B, A],
   ): <E, R>(ref: LazyRef<A, E, R>) => Effect.Effect<B, E, R>
-  <A, E, R, const B>(
-    ref: LazyRef<A, E, R>,
-    f: (a: A) => readonly [B, A],
-  ): Effect.Effect<B, E, R>
+  <A, E, R, const B>(ref: LazyRef<A, E, R>, f: (a: A) => readonly [B, A]): Effect.Effect<B, E, R>
 } = dual(2, function modify<
   A,
   B,
@@ -335,12 +333,11 @@ export const update: {
 export const getAndUpdate: {
   <A, B>(f: (a: A) => A): <E, R>(ref: LazyRef<A, E, R>) => Effect.Effect<A, E, R>
   <A, E, R, B>(ref: LazyRef<A, E, R>, f: (a: A) => A): Effect.Effect<A, E, R>
-} = dual(2, function getAndUpdate<
+} = dual(2, function getAndUpdate<A, E, R, B>(ref: LazyRef<A, E, R>, f: (a: A) => A): Effect.Effect<
   A,
   E,
-  R,
-  B,
->(ref: LazyRef<A, E, R>, f: (a: A) => A): Effect.Effect<A, E, R> {
+  R
+> {
   return modify(ref, (a) => {
     const a2 = f(a)
     return [a, a2]
@@ -361,11 +358,7 @@ export const updateEffect: {
   R,
   E2,
   R2,
->(ref: LazyRef<A, E, R>, f: (a: A) => Effect.Effect<A, E2, R2>): Effect.Effect<
-  A,
-  E | E2,
-  R | R2
-> {
+>(ref: LazyRef<A, E, R>, f: (a: A) => Effect.Effect<A, E2, R2>): Effect.Effect<A, E | E2, R | R2> {
   return modifyEffect(ref, (a) => Effect.map(f(a), (a2) => [a2, a2]))
 })
 
@@ -383,22 +376,14 @@ export const getAndUpdateEffect: {
   R,
   E2,
   R2,
->(ref: LazyRef<A, E, R>, f: (a: A) => Effect.Effect<A, E2, R2>): Effect.Effect<
-  A,
-  E | E2,
-  R | R2
-> {
+>(ref: LazyRef<A, E, R>, f: (a: A) => Effect.Effect<A, E2, R2>): Effect.Effect<A, E | E2, R | R2> {
   return modifyEffect(ref, (a) => Effect.map(f(a), (a2) => [a, a2]))
 })
 
 export const getAndSet: {
   <A>(a: A): <E, R>(ref: LazyRef<A, E, R>) => Effect.Effect<A, E, R>
   <A, E, R>(ref: LazyRef<A, E, R>, a: A): Effect.Effect<A, E, R>
-} = dual(2, function getAndSet<A, E, R>(ref: LazyRef<A, E, R>, a: A): Effect.Effect<
-  A,
-  E,
-  R
-> {
+} = dual(2, function getAndSet<A, E, R>(ref: LazyRef<A, E, R>, a: A): Effect.Effect<A, E, R> {
   return getAndUpdate(ref, () => a)
 })
 
@@ -561,9 +546,7 @@ export function tuple<const Refs extends ReadonlyArray<LazyRef<any, any, any>>>(
 >
 
 export function tuple<
-  const Refs extends ReadonlyArray<
-    LazyRef<any, any, any> | Computed.Computed<any, any, any>
-  >,
+  const Refs extends ReadonlyArray<LazyRef<any, any, any> | Computed.Computed<any, any, any>>,
 >(
   ...refs: Refs
 ): Computed.Computed<
@@ -572,9 +555,7 @@ export function tuple<
   LazyRef.Context<Refs[keyof Refs]>
 >
 
-export function tuple<const Refs extends ReadonlyArray<LazyRef<any, any, any>>>(
-  ...refs: Refs
-) {
+export function tuple<const Refs extends ReadonlyArray<LazyRef<any, any, any>>>(...refs: Refs) {
   const hasNonSubscriptionRefs = refs.some((ref) => !isSubscriptionRef(ref))
   if (hasNonSubscriptionRefs) {
     return Computed.fromVersioned(Versioned.tuple(...refs))
@@ -681,7 +662,6 @@ class StructImpl<Refs extends Readonly<Record<string, LazyRef<any, any, any>>>>
     return Effect.all(this.refs, { concurrency: 'unbounded' }) as any
   }
 
-
   runUpdates<B, E3, R3>(
     f: (
       getSetDelete: GetSetDelete<
@@ -717,12 +697,7 @@ function tupleRunUpdates<Refs extends ReadonlyArray<LazyRef<any, any, any>>, B, 
   )
 }
 
-function structRunUpdates<
-  Refs extends Readonly<Record<string, LazyRef<any, any, any>>>,
-  B,
-  E2,
-  R2,
->(
+function structRunUpdates<Refs extends Readonly<Record<string, LazyRef<any, any, any>>>, B, E2, R2>(
   refs: Refs,
   accumulated: (
     gsds: {
@@ -784,7 +759,7 @@ class TaggedImpl<Self, Id extends string, A, E>
     this.awaitShutdown = Effect.flatMap(this.tag, (ref) => ref.awaitShutdown)
     this.subscriberCount = Effect.flatMap(this.tag, (ref) => ref.subscriberCount)
     this.version = Effect.flatMap(this.tag, (ref) => ref.version)
-    this.changes = Stream.unwrap(this.tag)
+    this.changes = Stream.unwrap(Effect.map(this.tag, (ref) => ref.changes))
     this.runUpdates = <B, E2, R2>(
       f: (getSetDelete: GetSetDelete<A, E, Self>) => Effect.Effect<B, E2, R2>,
     ) => Effect.flatMap(this.tag, (ref) => ref.runUpdates(f))
@@ -806,7 +781,13 @@ class TaggedImpl<Self, Id extends string, A, E>
     fxOrEffect: Stream.Stream<A, E, R | Scope.Scope> | Effect.Effect<A, E, R | Scope.Scope>,
     options?: SubscriptionRefOptions<A> & { readonly drop?: number; readonly take?: number },
   ) {
-    return Layer.scoped(this.tag, make(fxOrEffect, options))
+    return Layer.scoped(
+      this.tag,
+      make(fxOrEffect, options).pipe(
+        Effect.map((x) => (options?.drop ? drop(x, options.drop) : x)),
+        Effect.map((x) => (options?.take ? take(x, options.take) : x)),
+      ),
+    )
   }
 
   layer<E2, R2>(make: Effect.Effect<LazyRef<A, E>, E2, R2 | Scope.Scope>) {
@@ -828,10 +809,7 @@ export function Tag<Id extends string>(id: Id) {
   }
 }
 
-class FromTag<Id, S, A, E, R>
-  extends VariancesImpl<A, E, Id | R>
-  implements LazyRef<A, E, Id | R>
-{
+class FromTag<Id, S, A, E, R> extends VariancesImpl<A, E, Id | R> implements LazyRef<A, E, Id | R> {
   readonly shutdown: Effect.Effect<void, never, Id | R>
   readonly awaitShutdown: Effect.Effect<void, never, Id | R>
   readonly subscriberCount: Effect.Effect<number, never, Id | R>
@@ -851,7 +829,7 @@ class FromTag<Id, S, A, E, R>
     this.awaitShutdown = Effect.flatMap(this.tag, (s) => this.f(s).awaitShutdown)
     this.subscriberCount = Effect.flatMap(this.tag, (s) => this.f(s).subscriberCount)
     this.version = Effect.flatMap(this.tag, (s) => this.f(s).version)
-    this.changes = Stream.unwrap(Effect.map(this.tag, this.f))
+    this.changes = Stream.unwrap(Effect.map(this.tag, (s) => this.f(s).changes))
     this.runUpdates = <B, E2, R2>(
       f: (getSetDelete: GetSetDelete<A, E, Id | R>) => Effect.Effect<B, E2, R2>,
     ) => Effect.flatMap(this.tag, (s) => this.f(s).runUpdates(f))
@@ -1023,11 +1001,7 @@ export const provideService: {
   R,
   Id,
   S,
->(ref: LazyRef<A, E, R>, tag: Context.Tag<Id, S>, services: S): LazyRef<
-  A,
-  E,
-  Exclude<R, Id>
-> {
+>(ref: LazyRef<A, E, R>, tag: Context.Tag<Id, S>, services: S): LazyRef<A, E, Exclude<R, Id>> {
   return provide_(ref, Provide.ProvideService(tag, services))
 })
 
@@ -1158,11 +1132,7 @@ export const take: {
 
   <A, E, R>(ref: LazyRef<A, E, R>, n: number): LazyRef<A, E, R>
   <A, E, R>(ref: Computed.Computed<A, E, R>, n: number): Computed.Computed<A, E, R>
-} = dual(2, function take<
-  A,
-  E,
-  R,
->(ref: LazyRef<A, E, R> | Computed.Computed<A, E, R>, n: number) {
+} = dual(2, function take<A, E, R>(ref: LazyRef<A, E, R> | Computed.Computed<A, E, R>, n: number) {
   return isSubscriptionRef<A, E, R>(ref)
     ? new SimpleTransform(ref, identity, Stream.take(n))
     : Computed.makeComputed(ref.get, Stream.take(ref.changes, n), ref.version)
