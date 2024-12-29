@@ -66,9 +66,8 @@ A `LazyRef` is a reference to a value that can be lazily computed and reactively
 The interface shows the core capabilities:
 
 ```typescript
-interface LazyRef<A, E = never, R = never> {
-  // Get the current value
-  readonly get: Effect<A, E, R>
+// An Effect which can retrieve the current value
+interface LazyRef<A, E = never, R = never> extends Effect<A, E, R> {
   // Stream of value changes
   readonly changes: Stream<A, E, R>
   // Current version number (increments with updates)
@@ -167,7 +166,7 @@ Tagged services allow you to integrate LazyRef with Effect's dependency injectio
 class Counter extends LazyRef.Tag('Counter')<Counter, number>() {
   // Define operations as static members for clean usage
   static increment = LazyRef.update(Counter, (x) => x + 1)
-  static decrement = LazyRef(Counter, (x) => x - 1)
+  static decrement = LazyRef.update(Counter, (x) => x - 1)
 }
 
 const program = Effect.gen(function* () {
@@ -175,7 +174,7 @@ const program = Effect.gen(function* () {
   yield* Counter.increment
   yield* Counter.increment
   yield* Counter.decrement
-  console.log(yield* Counter) // 2
+  console.log(yield* Counter) // 1
 }).pipe(
   Effect.provide(Counter.of(0)),
   // Alternative ways to provide the service:
