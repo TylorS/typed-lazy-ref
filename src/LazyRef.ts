@@ -1147,3 +1147,101 @@ export const take: {
     ? new SimpleTransform(ref, identity, Stream.take(n))
     : Computed.makeComputed(ref.get, Stream.take(ref.changes, n), ref.version)
 })
+
+export const transformOrFail: {
+  <A, B, E2, R2, E3, R3>(
+    f: (a: A) => Effect.Effect<B, E2, R2>,
+    g: (b: B) => Effect.Effect<A, E3, R3>,
+  ): <A, E, R>(ref: LazyRef<A, E, R>) => LazyRef<B, E | E2 | E3, R | R2 | R3>
+
+  <A, E, R, B, E2, R2, E3, R3>(
+    ref: LazyRef<A, E, R>,
+    f: (a: A) => Effect.Effect<B, E2, R2>,
+    g: (b: B) => Effect.Effect<A, E3, R3>,
+  ): LazyRef<B, E | E2 | E3, R | R2 | R3>
+} = dual(3, function transformOrFail<
+  A,
+  E,
+  R,
+  B,
+  E2,
+  R2,
+  E3,
+  R3,
+>(ref: LazyRef<A, E, R>, f: (a: A) => Effect.Effect<B, E2, R2>, g: (b: B) => Effect.Effect<A, E3, R3>): LazyRef<
+  B,
+  E | E2 | E3,
+  R | R2 | R3
+> {
+  return new TransformOrFail(ref, f, g)
+})
+
+class TransformOrFail<A, E, R, B, E2, R2, E3, R3>
+  extends VariancesImpl<B, E | E2 | E3, R | R2 | R3>
+  implements LazyRef<B, E | E2 | E3, R | R2 | R3>
+{
+  readonly shutdown: Effect.Effect<void, never, R | R2 | R3>
+  readonly awaitShutdown: Effect.Effect<void, never, R | R2 | R3>
+  readonly subscriberCount: Effect.Effect<number, never, R | R2 | R3>
+  readonly version: Effect.Effect<number, never, R | R2 | R3>
+  readonly changes: Stream.Stream<B, E | E2 | E3, R | R2 | R3>
+  readonly runUpdates: <B2, E4, R4>(
+    f: (getSetDelete: GetSetDelete<B, E | E2 | E3, R | R2 | R3>) => Effect.Effect<B2, E4, R4>,
+  ) => Effect.Effect<B2, E4, R | R2 | R3 | R4>
+  readonly channel: Channel<Chunk<B>, unknown, E | E2 | E3, unknown, unknown, unknown, R | R2 | R3>
+
+  constructor(
+    readonly ref: LazyRef<A, E, R>,
+    readonly f: (a: A) => Effect.Effect<B, E2, R2>,
+    readonly g: (b: B) => Effect.Effect<A, E3, R3>,
+  ) {
+    super()
+
+    this.shutdown = ref.shutdown
+    this.awaitShutdown = ref.awaitShutdown
+    this.subscriberCount = ref.subscriberCount
+    this.version = ref.version
+    this.changes = Stream.mapEffect(ref.changes, f)
+    this.runUpdates = (run) =>
+      ref.runUpdates((gsd) =>
+        run({
+          get: Effect.flatMap(gsd.get, f),
+          set: (b) => g(b).pipe(Effect.flatMap(gsd.set), Effect.flatMap(f), Effect.orDie),
+          delete: Effect.flatMap(
+            gsd.delete,
+            Option.match({
+              onNone: () => Effect.succeedNone,
+              onSome: (a) => Effect.asSome(f(a)),
+            }),
+          ),
+          version: gsd.version,
+        }),
+      )
+
+    this.channel = Stream.toChannel(this.changes)
+  }
+
+  toEffect() {
+    return Effect.flatMap(this.ref, this.f)
+  }
+
+  get get() {
+    return this
+  }
+}
+
+export const transform: {
+  <A, B>(f: (a: A) => B, g: (b: B) => A): <E, R>(ref: LazyRef<A, E, R>) => LazyRef<B, E, R>
+  <A, E, R, B>(ref: Computed.Computed<A, E, R>, f: (a: A) => B, g: (b: B) => A): LazyRef<B, E, R>
+} = dual(3, function transform<
+  A,
+  E,
+  R,
+  B,
+>(ref: LazyRef<A, E, R>, f: (a: A) => B, g: (b: B) => A): LazyRef<B, E, R> {
+  return transformOrFail(
+    ref,
+    (a) => Effect.succeed(f(a)),
+    (b) => Effect.succeed(g(b)),
+  )
+})
