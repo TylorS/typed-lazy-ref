@@ -1,6 +1,6 @@
 import { Effect, Stream, type Context, type Types } from 'effect'
 import { hasProperty } from 'effect/Predicate'
-import { VersionedImpl, type Versioned } from './Versioned'
+import { VersionedImpl, type Versioned } from './Versioned.js'
 
 export const ComputedTypeId = Symbol.for('@typed/LazyRef/Computed')
 export type ComputedTypeId = typeof ComputedTypeId
