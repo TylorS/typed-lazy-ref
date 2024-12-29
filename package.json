@@ -35,5 +35,8 @@
     "@types/node": "^22.10.2",
     "typescript": "^5.4.2",
     "vitest": "^2.1.8"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
