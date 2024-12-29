@@ -1,6 +1,6 @@
 {
   "name": "@typed/lazy-ref",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typed extensions for Effect's LazyRef",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
