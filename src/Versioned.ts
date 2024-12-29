@@ -1,5 +1,7 @@
 import { Effect, Readable, Record, Stream, Subscribable } from 'effect'
 import { EffectBase, MulticastEffect } from './internal.js'
+import type { Chunk } from 'effect/Chunk'
+import type { Channel } from 'effect/Channel'
 
 export interface Versioned<A, E, R>
   extends Effect.Effect<A, E, R>,
@@ -29,7 +31,8 @@ export class VersionedImpl<A, E, R> extends EffectBase<A, E, R> implements Versi
   readonly [Readable.TypeId]: typeof Readable.TypeId = Readable.TypeId
 
   readonly get: Effect.Effect<A, E, R>
-  
+  readonly channel: Channel<Chunk<A>, unknown, E, unknown, unknown, unknown, R>
+
   constructor(
     get: Effect.Effect<A, E, R>,
     readonly changes: Stream.Stream<A, E, R>,
@@ -37,6 +40,7 @@ export class VersionedImpl<A, E, R> extends EffectBase<A, E, R> implements Versi
   ) {
     super()
     this.get = new MulticastEffect(get)
+    this.channel = Stream.toChannel(this.changes)
   }
 
   toEffect(): Effect.Effect<A, E, R> {

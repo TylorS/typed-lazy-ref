@@ -246,8 +246,7 @@ describe('LazyRef', () => {
         transition: Option.none(),
       }))
       const transition = LazyRef.map(ref, (x) => x.transition)
-      const fiber = yield* transition.changes.pipe(
-        Stream.tap((_) => Effect.log('transition:', _)),
+      const fiber = yield* transition.pipe(
         Stream.runCollect,
         Effect.map((_) => Array.from(_)),
         Effect.fork,

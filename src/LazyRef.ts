@@ -17,6 +17,8 @@ import {
   type Tracer,
   type Types,
 } from 'effect'
+import type { Channel } from 'effect/Channel'
+import type { Chunk } from 'effect/Chunk'
 import { dual, identity } from 'effect/Function'
 import { hasProperty } from 'effect/Predicate'
 import * as Computed from './Computed.js'
@@ -173,6 +175,7 @@ class SubscriptionRefImpl<A, E, R, R2>
   readonly getSetDelete: GetSetDelete<A, E, Exclude<R, R2>>
   readonly get: Effect.Effect<A, E, Exclude<R, R2>>
   readonly changes: Stream.Stream<A, E, Exclude<R, R2>>
+  readonly channel: Channel<Chunk<A>, unknown, E, unknown, unknown, unknown, Exclude<R, R2>>
 
   constructor(readonly core: SubscriptionRefCore<A, E, R, R2>) {
     super()
@@ -184,6 +187,7 @@ class SubscriptionRefImpl<A, E, R, R2>
     this.get = this.toEffect()
     this.getSetDelete = getSetDelete(core)
     this.changes = Stream.flatten(Stream.fromPubSub(core.pubsub))
+    this.channel = Stream.toChannel(this.changes)
   }
 
   toEffect(): Effect.Effect<A, E, Exclude<R, R2>> {
@@ -818,6 +822,7 @@ class FromTag<Id, S, A, E, R> extends VariancesImpl<A, E, Id | R> implements Laz
   readonly runUpdates: <B, E2, R2>(
     f: (getSetDelete: GetSetDelete<A, E, Id | R>) => Effect.Effect<B, E2, R2>,
   ) => Effect.Effect<B, E2, Id | R | R2>
+  readonly channel: Channel<Chunk<A>, unknown, E, unknown, unknown, unknown, Id | R>
 
   constructor(
     readonly tag: Context.Tag<Id, S>,
@@ -833,6 +838,7 @@ class FromTag<Id, S, A, E, R> extends VariancesImpl<A, E, Id | R> implements Laz
     this.runUpdates = <B, E2, R2>(
       f: (getSetDelete: GetSetDelete<A, E, Id | R>) => Effect.Effect<B, E2, R2>,
     ) => Effect.flatMap(this.tag, (s) => this.f(s).runUpdates(f))
+    this.channel = Stream.toChannel(this.changes)
   }
 
   toEffect(): Effect.Effect<A, E, Id | R> {
@@ -893,6 +899,7 @@ class SubscriptionRefProvide<A, E, R, S, R2>
   readonly runUpdates: <B, E3, R3>(
     f: (getSetDelete: GetSetDelete<A, E, Exclude<R, S> | R2>) => Effect.Effect<B, E3, R3>,
   ) => Effect.Effect<B, E3, Exclude<R, S> | R2 | R3>
+  readonly channel: Channel<Chunk<A>, unknown, E, unknown, unknown, unknown, Exclude<R, S> | R2>
 
   constructor(
     readonly ref: LazyRef<A, E, R>,
@@ -912,6 +919,7 @@ class SubscriptionRefProvide<A, E, R, S, R2>
         ref.runUpdates((gsd) => f(gsd as any)),
         provide,
       ) as any
+    this.channel = Stream.toChannel(this.changes)
   }
 
   toEffect(): Effect.Effect<A, E, Exclude<R, S> | R2> {
@@ -1052,6 +1060,7 @@ class SimpleTransform<A, E, R, R2>
   readonly runUpdates: <B2, E3, R3>(
     f: (getSetDelete: GetSetDelete<A, E, R>) => Effect.Effect<B2, E3, R3>,
   ) => Effect.Effect<B2, E3, R | R2 | R3>
+  readonly channel: Channel<Chunk<A>, unknown, E, unknown, unknown, unknown, R | R2>
 
   constructor(
     readonly ref: LazyRef<A, E, R>,
@@ -1066,6 +1075,7 @@ class SimpleTransform<A, E, R, R2>
     this.version = ref.version
     this.changes = transformStream(ref.changes)
     this.runUpdates = ref.runUpdates
+    this.channel = Stream.toChannel(this.changes)
   }
 
   toEffect(): Effect.Effect<A, E, R | R2> {
