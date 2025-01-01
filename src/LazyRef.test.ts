@@ -265,7 +265,7 @@ describe('LazyRef', () => {
 
       yield* ref.awaitShutdown
 
-      const events = yield* Effect.fromFiber(fiber)
+      const events = yield* fiber
 
       expect(events).toEqual([
         Option.none(),

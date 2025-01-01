@@ -4,7 +4,6 @@ import {
   Context,
   Effect,
   type Equivalence,
-  type ExecutionStrategy,
   Layer,
   MutableRef,
   Option,
@@ -71,9 +70,8 @@ export declare namespace LazyRef {
     : never
 }
 
-export interface SubscriptionRefOptions<A> {
+export interface LazyRefOptions<A> {
   readonly eq?: Equivalence.Equivalence<A>
-  readonly executionStrategy?: ExecutionStrategy.ExecutionStrategy
 }
 
 export interface GetSetDelete<A, E, R> {
@@ -203,13 +201,13 @@ class SubscriptionRefImpl<A, E, R, R2>
 
 export const fromEffect = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, R | Scope.Scope> =>
   Effect.map(makeCore(effect, options), (core) => new SubscriptionRefImpl(core))
 
 export const fromStream = <A, E, R>(
   stream: Stream.Stream<A, E, R>,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, R | Scope.Scope> =>
   makeDeferredRef<A, E>(getExitEquivalence<A, E>(options?.eq ?? deepEquals)).pipe(
     Effect.bindTo('deferredRef'),
@@ -230,28 +228,28 @@ export const fromStream = <A, E, R>(
 
 export function make<A, E = never, R = never>(
   input: Effect.Effect<A, E, R> | Stream.Stream<A, E, R>,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, R | Scope.Scope> {
   return Effect.isEffect(input) ? fromEffect(input, options) : fromStream(input, options)
 }
 
 export function of<A, E = never>(
   value: A,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
   return make(Effect.succeed(value), options)
 }
 
 export function failCause<E, A = unknown>(
   cause: Cause.Cause<E>,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
   return make<A, E, never>(Effect.failCause(cause), options)
 }
 
 export function fail<E, A = unknown>(
   error: E,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
   return make<A, E, never>(Effect.fail(error), options)
 }
@@ -728,7 +726,7 @@ export interface Tagged<Self, Id extends string, A, E = never> extends LazyRef<A
 
   readonly make: <R>(
     fxOrEffect: Stream.Stream<A, E, R | Scope.Scope> | Effect.Effect<A, E, R | Scope.Scope>,
-    options?: SubscriptionRefOptions<A> & { readonly drop?: number; readonly take?: number },
+    options?: LazyRefOptions<A> & { readonly drop?: number; readonly take?: number },
   ) => Layer.Layer<Self, never, R>
 
   readonly layer: <E2, R2>(
@@ -783,7 +781,7 @@ class TaggedImpl<Self, Id extends string, A, E>
 
   make<R>(
     fxOrEffect: Stream.Stream<A, E, R | Scope.Scope> | Effect.Effect<A, E, R | Scope.Scope>,
-    options?: SubscriptionRefOptions<A> & { readonly drop?: number; readonly take?: number },
+    options?: LazyRefOptions<A> & { readonly drop?: number; readonly take?: number },
   ) {
     return Layer.scoped(
       this.tag,
@@ -1241,7 +1239,7 @@ export const transform: {
 >(ref: LazyRef<A, E, R>, f: (a: A) => B, g: (b: B) => A): LazyRef<B, E, R> {
   return transformOrFail(
     ref,
-    (a) => Effect.succeed(f(a)),
-    (b) => Effect.succeed(g(b)),
+    (a) => Effect.sync(() => f(a)),
+    (b) => Effect.sync(() => g(b)),
   )
 })

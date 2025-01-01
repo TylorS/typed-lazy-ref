@@ -24,7 +24,7 @@ import {
   type Types,
 } from 'effect'
 import { pipeArguments } from 'effect/Pipeable'
-import type { GetSetDelete, SubscriptionRefOptions } from './LazyRef.js'
+import type { GetSetDelete, LazyRefOptions } from './LazyRef.js'
 import { constVoid } from 'effect/Function'
 
 const toDeepEquals = (u: unknown): unknown => {
@@ -92,18 +92,17 @@ export class SubscriptionRefCore<A, E, R, R2> {
 
 export function makeCore<A, E, R>(
   initial: Effect.Effect<A, E, R>,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ) {
   return Effect.runtime<R | Scope.Scope>().pipe(
     Effect.bindTo('runtime'),
-    Effect.let('executionStrategy', () => options?.executionStrategy ?? ExecutionStrategy.parallel),
-    Effect.bind('scope', ({ executionStrategy, runtime }) =>
-      Scope.fork(Context.get(runtime.context, Scope.Scope), executionStrategy),
+    Effect.bind('scope', ({ runtime }) =>
+      Scope.fork(Context.get(runtime.context, Scope.Scope), ExecutionStrategy.parallel),
     ),
     Effect.bind('id', () => Effect.fiberId),
     Effect.map(({ id, runtime, scope }) => unsafeMakeCore(initial, id, runtime, scope, options)),
     Effect.tap((core) =>
-      Scope.addFinalizer(core.scope, Effect.provide(core.pubsub.shutdown, core.runtime.context)),
+      Scope.addFinalizer(core.scope, Effect.provide(interruptCore(core), core.runtime)),
     ),
   )
 }
@@ -113,7 +112,7 @@ export function unsafeMakeCore<A, E, R, R2>(
   id: FiberId.FiberId,
   runtime: Runtime.Runtime<R2>,
   scope: Scope.CloseableScope,
-  options?: SubscriptionRefOptions<A>,
+  options?: LazyRefOptions<A>,
 ): SubscriptionRefCore<A, E, R, R2> {
   const pubsub = pubsubWithReplay<A, E>()
   const core = new SubscriptionRefCore(
@@ -209,7 +208,7 @@ class PubsubWithReplay<A, E> implements PubSub.PubSub<Exit.Exit<A, E>> {
 
   subscribe: Effect.Effect<Queue.Dequeue<Exit.Exit<A, E>>, never, Scope.Scope> = Effect.suspend(
     () => {
-      MutableRef.update(this.subscriberCount, (count) => count + 1)
+      MutableRef.increment(this.subscriberCount)
 
       return this.pubsub.subscribe.pipe(
         Effect.map((dequeue) =>
@@ -218,8 +217,10 @@ class PubsubWithReplay<A, E> implements PubSub.PubSub<Exit.Exit<A, E>> {
             onSome: (previous) => dequeuePrepend(dequeue, previous),
           }),
         ),
-        Effect.ensuring(
-          Effect.sync(() => MutableRef.update(this.subscriberCount, (count) => count - 1)),
+        Effect.tap(
+          Effect.addFinalizer(() =>
+            Effect.sync(() => MutableRef.decrement(this.subscriberCount)),
+          ),
         ),
       )
     },
