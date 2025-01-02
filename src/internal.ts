@@ -160,7 +160,7 @@ export function matchEffectPrimitive<A, E, R, Z>(
     case 'Failure':
       return matchers.Failure(eff.cause)
     case 'Sync':
-      return matchers.Sync(eff.i0)
+      return matchers.Sync(eff.effect_instruction_i0)
     case 'Left':
       return matchers.Left(eff.left)
     case 'Right':

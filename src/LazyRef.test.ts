@@ -36,6 +36,14 @@ describe('LazyRef', () => {
     }),
   )
 
+  it.scoped('allows keeping state with sync functions', () =>
+    Effect.gen(function* () {
+      const ref = yield* LazyRef.sync(() => 0)
+      yield* LazyRef.update(ref, (x) => x + 1)
+      deepStrictEqual(yield* ref, 1)
+    }),
+  )
+
   it.scopedLive('runUpdates', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
