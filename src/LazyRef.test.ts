@@ -4,7 +4,7 @@ import { deepStrictEqual } from 'node:assert'
 import * as LazyRef from './LazyRef'
 
 describe('LazyRef', () => {
-  it.effect('allows keeping state with Effect', () =>
+  it.scoped('allows keeping state with Effect', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.make(Effect.succeed(0))
 
@@ -17,10 +17,10 @@ describe('LazyRef', () => {
       deepStrictEqual(yield* LazyRef.update(ref, (x) => x + 1), 1)
       deepStrictEqual(yield* LazyRef.delete(ref), Option.some(1))
       deepStrictEqual(yield* ref, 0)
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('allows keeping state with Stream', () =>
+  it.scoped('allows keeping state with Stream', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.make(Stream.succeed(0))
 
@@ -33,10 +33,10 @@ describe('LazyRef', () => {
       deepStrictEqual(yield* LazyRef.update(ref, (x) => x + 1), 1)
       deepStrictEqual(yield* LazyRef.delete(ref), Option.some(1))
       deepStrictEqual(yield* ref, 0)
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.live('runUpdates', () =>
+  it.scopedLive('runUpdates', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
       const fiber = yield* ref.changes.pipe(Stream.take(10), Stream.runCollect, Effect.fork)
@@ -76,10 +76,10 @@ describe('LazyRef', () => {
       )
 
       expect(Array.from(yield* fiber)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('Computed', () =>
+  it.scoped('Computed', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
       const computed = LazyRef.map(ref, (x) => x + 1)
@@ -87,10 +87,10 @@ describe('LazyRef', () => {
 
       yield* LazyRef.update(ref, (x) => x + 1)
       expect(yield* computed).toEqual(2)
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('struct', () =>
+  it.scoped('struct', () =>
     Effect.gen(function* () {
       const a = yield* LazyRef.of(0)
       const b = yield* LazyRef.of(1)
@@ -110,20 +110,20 @@ describe('LazyRef', () => {
 
       yield* LazyRef.update(struct, (x) => ({ ...x, a: x.a + 1 }))
       expect(yield* struct).toEqual({ a: 2, b: 2, c: 3 })
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('struct with computed', () =>
+  it.scoped('struct with computed', () =>
     Effect.gen(function* () {
       const a = yield* LazyRef.of(0)
       const b = yield* LazyRef.of(1)
       const c = LazyRef.map(yield* LazyRef.of(2), (x) => x + 1)
       const struct = LazyRef.struct({ a, b, c })
       expect(yield* struct).toEqual({ a: 0, b: 1, c: 3 })
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('tuple', () =>
+  it.scoped('tuple', () =>
     Effect.gen(function* () {
       const a = yield* LazyRef.of(0)
       const b = yield* LazyRef.of(1)
@@ -142,20 +142,20 @@ describe('LazyRef', () => {
 
       yield* LazyRef.update(tuple, (x) => [x[0] + 1, x[1] + 1, x[2] + 1])
       expect(yield* tuple).toEqual([2, 3, 4])
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('tuple with computed', () =>
+  it.scoped('tuple with computed', () =>
     Effect.gen(function* () {
       const a = yield* LazyRef.of(0)
       const b = yield* LazyRef.of(1)
       const c = LazyRef.map(yield* LazyRef.of(2), (x) => x + 1)
       const computed = LazyRef.tuple(a, b, c)
       expect(yield* computed).toEqual([0, 1, 3])
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.effect('tagged', () => {
+  it.scoped('tagged', () => {
     class Foo extends LazyRef.Tag('foo')<Foo, number>() {}
     class Bar extends LazyRef.Tag('bar')<Bar, number>() {}
     const FooBar = LazyRef.struct({ foo: Foo, bar: Bar })
@@ -170,7 +170,7 @@ describe('LazyRef', () => {
     }).pipe(Effect.provide([Foo.of(0), Bar.of(0)]))
   })
 
-  it.live('replays the latest value to late subscribers', () =>
+  it.scopedLive('replays the latest value to late subscribers', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
       const fiber1 = yield* ref.changes.pipe(Stream.runCollect, Effect.fork)
@@ -194,10 +194,10 @@ describe('LazyRef', () => {
       expect(Array.from(yield* fiber1)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
       expect(Array.from(yield* fiber2)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10])
       expect(Array.from(yield* fiber3)).toEqual([4, 5, 6, 7, 8, 9, 10])
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.live('emits updates to computed streams', () =>
+  it.scopedLive('emits updates to computed streams', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
       const computed = LazyRef.map(ref, (x) => x + 1)
@@ -211,10 +211,10 @@ describe('LazyRef', () => {
 
       expect(Array.from(yield* fiber)).toEqual([1, 2])
       expect(Array.from(yield* fiber2)).toEqual([2, 3])
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.live('emits updates to computed streams of Options', () =>
+  it.scopedLive('emits updates to computed streams of Options', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
       const computed = LazyRef.map(ref, (x) => Option.some(x + 1))
@@ -231,20 +231,22 @@ describe('LazyRef', () => {
 
       expect(Array.from(yield* fiber)).toEqual([Option.some(1), Option.some(2)])
       expect(Array.from(yield* fiber2)).toEqual([Option.some(2), Option.some(3)])
-    }).pipe(Effect.scoped),
+    }),
   )
 
-  it.live('verifying LazyRef works as expected', () =>
+  it.scopedLive('verifying LazyRef works as expected', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.make<{
         entries: never[]
         index: number
         transition: Option.Option<{ from: URL; to: URL }>
-      }>(Effect.succeed({
-        entries: [],
-        index: -1,
-        transition: Option.none(),
-      }))
+      }>(
+        Effect.succeed({
+          entries: [],
+          index: -1,
+          transition: Option.none(),
+        }),
+      )
       const transition = LazyRef.map(ref, (x) => x.transition)
       const fiber = yield* transition.pipe(
         Stream.runCollect,
@@ -274,6 +276,34 @@ describe('LazyRef', () => {
           to: new URL('https://example.com/foo/2'),
         }),
       ])
-    }).pipe(Effect.scoped),
+    }),
+  )
+
+  it.scopedLive('it can be read while being updated', () =>
+    Effect.gen(function* () {
+      const ref = yield* LazyRef.of(0)
+      
+      yield* Effect.forkScoped(
+        ref.runUpdates(({ set }) =>
+          Effect.iterate(0, {
+            while: (x) => x < 10,
+            body: (x) => set(x + 1).pipe(Effect.delay(100)),
+          }),
+        ),
+      )
+
+      const sleepAndAssert = (expected: number) => Effect.gen(function* () {
+        yield* Effect.sleep(100)
+        expect(yield* ref).toEqual(expected)
+        expect(yield* ref.version).toEqual(expected)
+      })
+
+      // Let fiber start
+      yield* Effect.sleep(0)
+      for (let i = 0; i < 10; i++) {
+        yield* sleepAndAssert(i + 1)
+      }
+    }),
   )
 })
+

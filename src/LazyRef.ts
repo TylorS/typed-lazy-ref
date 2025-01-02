@@ -4,6 +4,7 @@ import {
   Context,
   Effect,
   type Equivalence,
+  Exit,
   Layer,
   MutableRef,
   Option,
@@ -162,7 +163,7 @@ abstract class VariancesImpl<A, E, R> extends EffectBase<A, E, R> {
   readonly [Readable.TypeId]: Readable.TypeId = Readable.TypeId
 }
 
-class SubscriptionRefImpl<A, E, R, R2>
+class LazyRefImpl<A, E, R, R2>
   extends VariancesImpl<A, E, Exclude<R, R2>>
   implements LazyRef<A, E, Exclude<R, R2>>
 {
@@ -203,7 +204,7 @@ export const fromEffect = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, R | Scope.Scope> =>
-  Effect.map(makeCore(effect, options), (core) => new SubscriptionRefImpl(core))
+  Effect.map(makeCore(effect, options), (core) => new LazyRefImpl(core))
 
 export const fromStream = <A, E, R>(
   stream: Stream.Stream<A, E, R>,
@@ -223,7 +224,7 @@ export const fromStream = <A, E, R>(
         core.scope,
       ),
     ),
-    Effect.map(({ core }) => new SubscriptionRefImpl(core)),
+    Effect.map(({ core }) => new LazyRefImpl(core)),
   )
 
 export function make<A, E = never, R = never>(
@@ -244,14 +245,18 @@ export function failCause<E, A = unknown>(
   cause: Cause.Cause<E>,
   options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
-  return make<A, E, never>(Effect.failCause(cause), options)
+  return make<A, E, never>(Exit.failCause(cause), options)
 }
 
 export function fail<E, A = unknown>(
   error: E,
   options?: LazyRefOptions<A>,
 ): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
-  return make<A, E, never>(Effect.fail(error), options)
+  return make<A, E, never>(Exit.fail(error), options)
+}
+
+export function sync<A, E = never>(f: () => A, options?: LazyRefOptions<A>): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
+  return make(Effect.sync(f), options)
 }
 
 export function get<A, E, R>(ref: LazyRef<A, E, R>): Effect.Effect<A, E, R> {

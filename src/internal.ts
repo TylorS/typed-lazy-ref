@@ -131,8 +131,8 @@ export function unsafeMakeCore<A, E, R, R2>(
     Left: (e) => core.deferredRef.done(Exit.fail(e)),
     Right: (a) => core.deferredRef.done(Exit.succeed(a)),
     Some: (a) => core.deferredRef.done(Exit.succeed(a)),
-    Sync: constVoid,
-    None: constVoid,
+    Sync: (f) => core.deferredRef.done(Exit.succeed(f())),
+    None: (e) => core.deferredRef.done(Exit.fail(e)),
     Otherwise: constVoid,
   })
 
@@ -154,7 +154,7 @@ export function matchEffectPrimitive<A, E, R, Z>(
 ): Z {
   const eff = effect as any
 
-  switch (eff._tag) {
+  switch (eff._op) {
     case 'Success':
       return matchers.Success(eff.value)
     case 'Failure':
@@ -169,6 +169,8 @@ export function matchEffectPrimitive<A, E, R, Z>(
       return matchers.Some(eff.value)
     case 'None':
       return matchers.None(new Cause.NoSuchElementException() as E)
+    case 'Commit':
+      return matchEffectPrimitive(eff.commit(), matchers)
     default:
       return matchers.Otherwise(effect)
   }
@@ -589,7 +591,7 @@ function initializeCore<A, E, R, R2>(
     None: onError,
     Left: onError,
     Right: onSuccess,
-    Sync: (f) => Effect.suspend(() => onSuccess(f())),
+    Sync: (f) =>  onSuccess(f()),
     Otherwise: () => initializeCoreEffect(core, lock),
   })
 }
