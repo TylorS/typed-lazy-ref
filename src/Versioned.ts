@@ -1,7 +1,11 @@
-import { Effect, Readable, Record, Stream, Subscribable } from 'effect'
-import { EffectBase, MulticastEffect } from './internal.js'
-import type { Chunk } from 'effect/Chunk'
 import type { Channel } from 'effect/Channel'
+import type { Chunk } from 'effect/Chunk'
+import * as Effect from 'effect/Effect'
+import * as Readable from 'effect/Readable'
+import * as Record from 'effect/Record'
+import * as Stream from 'effect/Stream'
+import * as Subscribable from 'effect/Subscribable'
+import { EffectBase, MulticastEffect } from './internal.js'
 
 export interface Versioned<A, E, R>
   extends Effect.Effect<A, E, R>,

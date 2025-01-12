@@ -1,26 +1,24 @@
-import {
-  Boolean,
-  type Cause,
-  Context,
-  Effect,
-  type Equivalence,
-  Exit,
-  Layer,
-  MutableRef,
-  Option,
-  Readable,
-  Record,
-  type Runtime,
-  type Scope,
-  Stream,
-  Subscribable,
-  type Tracer,
-  type Types,
-} from 'effect'
+import * as Boolean from 'effect/Boolean'
+import type * as Cause from 'effect/Cause'
 import type { Channel } from 'effect/Channel'
 import type { Chunk } from 'effect/Chunk'
+import * as Context from 'effect/Context'
+import * as Effect from 'effect/Effect'
+import type * as Equivalence from 'effect/Equivalence'
+import * as Exit from 'effect/Exit'
 import { dual, identity } from 'effect/Function'
+import * as Layer from 'effect/Layer'
+import * as MutableRef from 'effect/MutableRef'
+import * as Option from 'effect/Option'
 import { hasProperty } from 'effect/Predicate'
+import * as Readable from 'effect/Readable'
+import * as Record from 'effect/Record'
+import type * as Runtime from 'effect/Runtime'
+import type * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
+import * as Subscribable from 'effect/Subscribable'
+import type * as Tracer from 'effect/Tracer'
+import type * as Types from 'effect/Types'
 import * as Computed from './Computed.js'
 import {
   deepEquals,
@@ -255,7 +253,10 @@ export function fail<E, A = unknown>(
   return make<A, E, never>(Exit.fail(error), options)
 }
 
-export function sync<A, E = never>(f: () => A, options?: LazyRefOptions<A>): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
+export function sync<A, E = never>(
+  f: () => A,
+  options?: LazyRefOptions<A>,
+): Effect.Effect<LazyRef<A, E>, never, Scope.Scope> {
   return make(Effect.sync(f), options)
 }
 

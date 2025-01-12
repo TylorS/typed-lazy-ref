@@ -1,31 +1,29 @@
-import {
-  Cause,
-  Chunk,
-  Context,
-  Data,
-  Deferred,
-  Effect,
-  Effectable,
-  Equal,
-  Equivalence,
-  ExecutionStrategy,
-  Exit,
-  Fiber,
-  MutableRef,
-  Option,
-  Predicate,
-  PubSub,
-  Queue,
-  Record,
-  Scope,
-  Stream,
-  type FiberId,
-  type Runtime,
-  type Types,
-} from 'effect'
-import { pipeArguments } from 'effect/Pipeable'
-import type { GetSetDelete, LazyRefOptions } from './LazyRef.js'
+import * as Cause from 'effect/Cause'
+import * as Chunk from 'effect/Chunk'
+import * as Context from 'effect/Context'
+import * as Data from 'effect/Data'
+import * as Deferred from 'effect/Deferred'
+import * as Effect from 'effect/Effect'
+import * as Effectable from 'effect/Effectable'
+import * as Equal from 'effect/Equal'
+import * as Equivalence from 'effect/Equivalence'
+import * as ExecutionStrategy from 'effect/ExecutionStrategy'
+import * as Exit from 'effect/Exit'
+import * as Fiber from 'effect/Fiber'
+import type * as FiberId from 'effect/FiberId'
 import { constVoid } from 'effect/Function'
+import * as MutableRef from 'effect/MutableRef'
+import * as Option from 'effect/Option'
+import { pipeArguments } from 'effect/Pipeable'
+import * as Predicate from 'effect/Predicate'
+import * as PubSub from 'effect/PubSub'
+import * as Queue from 'effect/Queue'
+import * as Record from 'effect/Record'
+import type * as Runtime from 'effect/Runtime'
+import * as Scope from 'effect/Scope'
+import * as Stream from 'effect/Stream'
+import type * as Types from 'effect/Types'
+import type { GetSetDelete, LazyRefOptions } from './LazyRef.js'
 
 const toDeepEquals = (u: unknown): unknown => {
   switch (typeof u) {
@@ -90,10 +88,7 @@ export class SubscriptionRefCore<A, E, R, R2> {
   public _fiber: Fiber.Fiber<A, E> | undefined = undefined
 }
 
-export function makeCore<A, E, R>(
-  initial: Effect.Effect<A, E, R>,
-  options?: LazyRefOptions<A>,
-) {
+export function makeCore<A, E, R>(initial: Effect.Effect<A, E, R>, options?: LazyRefOptions<A>) {
   return Effect.runtime<R | Scope.Scope>().pipe(
     Effect.bindTo('runtime'),
     Effect.bind('scope', ({ runtime }) =>
@@ -220,9 +215,7 @@ class PubsubWithReplay<A, E> implements PubSub.PubSub<Exit.Exit<A, E>> {
           }),
         ),
         Effect.tap(
-          Effect.addFinalizer(() =>
-            Effect.sync(() => MutableRef.decrement(this.subscriberCount)),
-          ),
+          Effect.addFinalizer(() => Effect.sync(() => MutableRef.decrement(this.subscriberCount))),
         ),
       )
     },
@@ -591,7 +584,7 @@ function initializeCore<A, E, R, R2>(
     None: onError,
     Left: onError,
     Right: onSuccess,
-    Sync: (f) =>  onSuccess(f()),
+    Sync: (f) => onSuccess(f()),
     Otherwise: () => initializeCoreEffect(core, lock),
   })
 }
