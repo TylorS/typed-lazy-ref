@@ -219,7 +219,7 @@ const program = Effect.gen(function* () {
   )
 
   // We need to allow time for changes fiber to start subscribing
-  yield* Effect.yieldNow()
+  yield* Effect.sleep(0)
     
   // Simulate another process updating
   yield* LazyRef.update(ref, x => x + 1)

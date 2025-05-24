@@ -327,7 +327,7 @@ describe('LazyRef', () => {
       )
 
       // We need to allow time for changes fiber to start subscribing
-      yield* Effect.yieldNow()
+      yield* Effect.sleep(0)
 
       // Simulate another process updating
       // Updates are propagated to subscribers
