@@ -216,7 +216,7 @@ export const fromStream = <A, E, R>(
         stream.pipe(
           streamExit,
           Stream.runForEach((exit) =>
-            deferredRef.done(exit) ? sendEvent(core, exit) : Effect.void,
+            deferredRef.done(exit) ? Effect.sync(() => sendEvent(core, exit)) : Effect.void,
           ),
         ),
         core.scope,

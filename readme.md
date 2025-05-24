@@ -217,12 +217,14 @@ const program = Effect.gen(function* () {
     Stream.runCollect,
     Effect.fork
   )
-  
-  // Updates are propagated to subscribers
+
+  // We need to allow time for changes fiber to start subscribing
+  yield* Effect.yieldNow()
+    
+  // Simulate another process updating
   yield* LazyRef.update(ref, x => x + 1)
-  yield* LazyRef.update(ref, x => x + 1)
-  
-  const values = yield* Effect.join(fiber)
+  yield* LazyRef.update(ref, x => x + 1)  
+  const values = yield* Effect.fromFiber(fiber)
   console.log(Array.from(values)) // [0, 1, 2]
 })
 ```

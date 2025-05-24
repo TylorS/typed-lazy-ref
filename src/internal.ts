@@ -593,7 +593,9 @@ function initializeCoreAndTap<A, E, R, R2>(
   core: SubscriptionRefCore<A, E, R, R2>,
   lock: boolean,
 ): Effect.Effect<A, E, Exclude<R, R2>> {
-  return Effect.zipRight(initializeCore(core, lock), tapEventCore(core, core.deferredRef))
+  return Effect.zipRight(initializeCore(core, lock), tapEventCore(core, core.deferredRef), {
+    concurrent: true,
+  })
 }
 
 function setCore<A, E, R, R2>(
@@ -602,14 +604,12 @@ function setCore<A, E, R, R2>(
 ): Effect.Effect<A, never, Exclude<R, R2>> {
   const exit = Exit.succeed(a)
 
-  return Effect.suspend(() => {
+  return Effect.sync(() => {
+    // If the value changed, send an event
     if (core.deferredRef.done(exit)) {
-      // If the value changed, send an event
-      return Effect.as(sendEvent(core, exit), a)
-    } else {
-      // Otherwise, just return the current value
-      return Effect.succeed(a)
+      sendEvent(core, exit)
     }
+    return a
   })
 }
 
@@ -681,6 +681,6 @@ function tapEventCore<A, E, R, R2, R3>(
 export function sendEvent<A, E, R, R2>(
   core: SubscriptionRefCore<A, E, R, R2>,
   exit: Exit.Exit<A, E>,
-): Effect.Effect<void> {
-  return core.pubsub.publish(exit)
+): void {
+  core.pubsub.unsafeOffer(exit)
 }

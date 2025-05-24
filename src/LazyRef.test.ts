@@ -2,6 +2,7 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option, Stream } from 'effect'
 import { deepStrictEqual } from 'node:assert'
 import * as LazyRef from './LazyRef'
+import { increment } from 'effect/Number'
 
 describe('LazyRef', () => {
   it.scoped('allows keeping state with Effect', () =>
@@ -290,7 +291,7 @@ describe('LazyRef', () => {
   it.scopedLive('it can be read while being updated', () =>
     Effect.gen(function* () {
       const ref = yield* LazyRef.of(0)
-      
+
       yield* Effect.forkScoped(
         ref.runUpdates(({ set }) =>
           Effect.iterate(0, {
@@ -300,11 +301,12 @@ describe('LazyRef', () => {
         ),
       )
 
-      const sleepAndAssert = (expected: number) => Effect.gen(function* () {
-        yield* Effect.sleep(100)
-        expect(yield* ref).toEqual(expected)
-        expect(yield* ref.version).toEqual(expected)
-      })
+      const sleepAndAssert = (expected: number) =>
+        Effect.gen(function* () {
+          yield* Effect.sleep(100)
+          expect(yield* ref).toEqual(expected)
+          expect(yield* ref.version).toEqual(expected)
+        })
 
       // Let fiber start
       yield* Effect.sleep(0)
@@ -313,5 +315,28 @@ describe('LazyRef', () => {
       }
     }),
   )
-})
 
+  it.scopedLive('github issue #2', () =>
+    Effect.gen(function* () {
+      const ref = yield* LazyRef.of(0)
+      // Subscribe to the next 3 values
+      const fiber = yield* ref.changes.pipe(
+        Stream.take(3),
+        Stream.runCollect,
+        Effect.fork
+      )
+
+      // We need to allow time for changes fiber to start subscribing
+      yield* Effect.yieldNow()
+
+      // Simulate another process updating
+      // Updates are propagated to subscribers
+      yield* LazyRef.update(ref, increment)
+      yield* LazyRef.update(ref, increment)
+
+      const values = yield* Effect.fromFiber(fiber)
+
+      expect(Array.from(values)).toEqual([0, 1, 2])
+    }),
+  )
+})
